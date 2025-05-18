@@ -1,0 +1,330 @@
+@baseUrl = http://localhost:{{$processEnv PORT || 3000}}/api
+
+# Variables (se pueden sobreescribir o definir en un entorno .env.http)
+@jwtToken =
+@userId =
+@clientId =
+@projectId =
+@deliveryNoteId =
+@invitationToken =
+
+###
+# 1. Autenticación y Usuarios
+###
+
+# @name registerUser
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "nombre": "Usuario Pruebas HTTP",
+  "email": "pruebas{{$randomInt}}@httpenv.com",
+  "password": "password123",
+  "nombreEmpresa": "Empresa HTTP Test"
+}
+
+###
+# Guardar token y ID de usuario del registro
+@jwtToken = {{registerUser.response.body.token}}
+@userId = {{registerUser.response.body.usuario._id}}
+
+# @name loginUser
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "usuario.registrado@example.com", // Cambiar por un email registrado y validado
+  "password": "password123"
+}
+
+###
+# Si se usa el login anterior, actualizar el token:
+# @jwtToken = {{loginUser.response.body.token}}
+# @userId = {{loginUser.response.body.usuario._id}}
+
+# @name validateEmail
+PUT {{baseUrl}}/user/validation
+Content-Type: application/json
+
+{
+  "token": "PEGAR_TOKEN_DE_VALIDACION_EMAIL_AQUI" // Obtener del email simulado o consola
+}
+
+
+###
+# @name getProfile
+GET {{baseUrl}}/user/me
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name updateProfile
+PATCH {{baseUrl}}/user
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Nombre Actualizado HTTP",
+  "telefonoPersonal": "600112233"
+}
+
+###
+# @name updateUserCompany
+PATCH {{baseUrl}}/user/company
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "nombreEmpresa": "Mi Empresa HTTP Actualizada",
+  "direccionEmpresa": "Calle Falsa 123, Ciudad HTTP",
+  "cifEmpresa": "B98765432"
+}
+
+###
+# @name changePassword
+PATCH {{baseUrl}}/user/change-password
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "password123", // Contraseña actual del usuario de pruebas
+  "newPassword": "newPassword456"
+}
+
+###
+# @name requestPasswordReset
+POST {{baseUrl}}/auth/request-password-reset
+Content-Type: application/json
+
+{
+  "email": "pruebas@httpenv.com" // Email del usuario para el que se resetea
+}
+
+###
+# @name resetPassword
+POST {{baseUrl}}/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "PEGAR_TOKEN_DE_RESETEO_AQUI", // Obtener del email simulado o consola
+  "nuevaPassword": "passwordReseteada789"
+}
+
+###
+# @name inviteToCompany
+POST {{baseUrl}}/user/invite-to-company
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "email": "invitado{{$randomInt}}@example.com" // Email de un usuario existente a invitar
+}
+
+###
+# @name acceptInvitation
+# Nota: El usuario que acepta debe estar logueado (su token en jwtToken)
+POST {{baseUrl}}/user/accept-company-invitation
+Authorization: Bearer {{jwtToken}} # Token del INVITADO
+Content-Type: application/json
+
+{
+  "token": "PEGAR_TOKEN_DE_INVITACION_AQUI" // Obtener del email simulado o invitación creada
+}
+
+
+###
+# 2. Clientes
+###
+
+# @name createClient
+POST {{baseUrl}}/clients
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Cliente Nuevo HTTP",
+  "email": "cliente.nuevo.http@example.com",
+  "telefono": "912345001",
+  "tipo": "Empresa",
+  "direccionFacturacion": {
+    "calle": "Av. Principal HTTP",
+    "ciudad": "Ciudad HTTP",
+    "codigoPostal": "28080",
+    "pais": "España"
+  }
+}
+
+###
+@clientId = {{createClient.response.body._id}}
+
+# @name listClients
+GET {{baseUrl}}/clients
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name getClientById
+GET {{baseUrl}}/clients/{{clientId}}
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name updateClient
+PATCH {{baseUrl}}/clients/{{clientId}}
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "nombreComercial": "Cliente HTTP Modificado",
+  "telefono": "912345002"
+}
+
+###
+# @name softDeleteClient
+DELETE {{baseUrl}}/clients/{{clientId}}/soft
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name recoverClient
+# Primero hacer soft delete, luego usar este con el mismo clientId
+PATCH {{baseUrl}}/clients/{{clientId}}/recover 
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name hardDeleteClient
+# CUIDADO: Esta acción es irreversible
+DELETE {{baseUrl}}/clients/{{clientId}}/hard
+Authorization: Bearer {{jwtToken}}
+
+
+###
+# 3. Proyectos
+###
+
+# @name createProject
+POST {{baseUrl}}/projects
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Proyecto Web HTTP",
+  "descripcion": "Desarrollo de la nueva web para Cliente Nuevo HTTP",
+  "clienteId": "{{clientId}}", // Usar ID del cliente creado arriba
+  "fechaInicio": "2024-04-01",
+  "estado": "Planificado"
+}
+
+###
+@projectId = {{createProject.response.body._id}}
+
+# @name listProjects
+GET {{baseUrl}}/projects
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name listProjectsByClient
+GET {{baseUrl}}/projects?clienteId={{clientId}}
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name getProjectById
+GET {{baseUrl}}/projects/{{projectId}}
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name updateProject
+PATCH {{baseUrl}}/projects/{{projectId}}
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "descripcion": "Actualización: Desarrollo avanzado de la web.",
+  "estado": "En progreso"
+}
+
+###
+# @name archiveProject
+PATCH {{baseUrl}}/projects/{{projectId}}/archive
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name recoverProject
+PATCH {{baseUrl}}/projects/{{projectId}}/recover
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name hardDeleteProject
+# CUIDADO: Esta acción es irreversible
+DELETE {{baseUrl}}/projects/{{projectId}}/hard
+Authorization: Bearer {{jwtToken}}
+
+
+###
+# 4. Albaranes (Delivery Notes)
+###
+
+# @name createDeliveryNote
+POST {{baseUrl}}/deliverynotes
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "cliente": "{{clientId}}", 
+  "proyecto": "{{projectId}}",
+  "fechaEmision": "2024-03-20",
+  "conceptos": [
+    { "descripcion": "Horas de desarrollo frontend", "cantidad": 20, "precioUnitario": 55, "unidad": "h" },
+    { "descripcion": "Consultoría UX/UI", "cantidad": 8, "precioUnitario": 70, "unidad": "h" }
+  ],
+  "observaciones": "Primer entregable del proyecto web."
+}
+
+###
+@deliveryNoteId = {{createDeliveryNote.response.body._id}}
+
+# @name listDeliveryNotes
+GET {{baseUrl}}/deliverynotes
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name getDeliveryNoteById
+GET {{baseUrl}}/deliverynotes/{{deliveryNoteId}}
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name downloadDeliveryNotePdf
+GET {{baseUrl}}/deliverynotes/{{deliveryNoteId}}/download-pdf
+Authorization: Bearer {{jwtToken}}
+
+// Para guardar el PDF, en VS Code con REST Client, puedes añadir:
+// @saveResponse type=FILE path=./albaran_ejemplo.pdf
+
+###
+# @name signDeliveryNote
+# Requiere un archivo "firma.png" en el mismo directorio que este .http file o ajustar la ruta.
+PATCH {{baseUrl}}/deliverynotes/{{deliveryNoteId}}/sign
+Authorization: Bearer {{jwtToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="firma"; filename="firma.png"
+Content-Type: image/png
+
+< ./firma.png 
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+# @name uploadSignedPdf
+# Llamar después de que el albarán esté firmado
+POST {{baseUrl}}/deliverynotes/{{deliveryNoteId}}/upload-signed-pdf
+Authorization: Bearer {{jwtToken}}
+
+###
+# @name deleteDeliveryNoteUnsigned
+# Usar con un ID de albarán NO FIRMADO
+DELETE {{baseUrl}}/deliverynotes/{{deliveryNoteId}} 
+Authorization: Bearer {{jwtToken}}
+
+
+###
+# Soft delete usuario autenticado
+# @name softDeleteCurrentUser
+PATCH {{baseUrl}}/user/me/soft-delete
+Authorization: Bearer {{jwtToken}} 
